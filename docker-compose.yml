@@ -4,11 +4,12 @@ services:
   attendance:
     build: .
     ports:
-      - "5000:5000"
+      - "5000:1111"
     volumes:
       - attendance_data:/data
     environment:
       - DATABASE_URL=sqlite:////data/attendance.db
+      - TZ=America/New_York
     restart: unless-stopped
 
 volumes:
