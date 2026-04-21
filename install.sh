@@ -190,7 +190,7 @@ install_docker_gentoo() {
 
 # ── 1. Check / install Docker ─────────────────────────────────────────────────
 log "Checking for Docker..."
-if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+if command docker -v &>/dev/null && docker info &>/dev/null 2>&1; then
   success "Docker already installed ($(docker --version | cut -d' ' -f3 | tr -d ','))"
 else
   warn "Docker not found or not running. Installing..."
