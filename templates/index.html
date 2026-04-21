@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Tracker</title>
+<!-- PWA / Home Screen -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Attendance">
+<meta name="theme-color" content="#0D0F14">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/static/apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="/static/apple-touch-icon-120.png">
+<link rel="apple-touch-icon" sizes="76x76" href="/static/apple-touch-icon-76.png">
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root {
+  --bg: #0D0F14; --surface: #161921; --surface2: #1E2230; --border: #2A2F3E;
+  --accent: #5B7FFF; --accent2: #A78BFA;
+  --present: #34D399; --absent: #F87171;
+  --am-color: #A78BFA; --pm-color: #60A5FA;
+  --text: #E8EAEF; --text-muted: #6B7280; --text-dim: #9CA3AF;
+  --font-display: 'Syne', sans-serif; --font-mono: 'DM Mono', monospace;
+  --radius: 12px; --radius-sm: 8px; --radius-xs: 6px;
+  --header-h: 60px;
+  --bottom-nav-h: 64px;
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--font-display);
+  min-height: 100dvh; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+  /* Reserve space for fixed bottom nav on mobile */
+  padding-bottom: var(--bottom-nav-h);
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px; opacity: 0.18; pointer-events: none; z-index: 0;
+}
+button { -webkit-tap-highlight-color: transparent; cursor: pointer; }
+
+/* ============================================================
+   HEADER — desktop: logo + inline nav; mobile: logo + user icon only
+   ============================================================ */
+header {
+  position: sticky; top: 0; z-index: 200; height: var(--header-h);
+  background: rgba(13,15,20,0.94); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 16px;
+}
+.logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; }
+.logo-icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.logo-text { font-size: 16px; font-weight: 800; letter-spacing: -0.4px; color: var(--text); }
+.logo-text span { color: var(--accent); }
+
+/* Desktop inline nav */
+.desktop-nav { display: flex; gap: 2px; margin-left: 12px; }
+.nav-btn {
+  padding: 7px 14px; border-radius: var(--radius-xs); border: none;
+  background: transparent; color: var(--text-muted); font-family: var(--font-display);
+  font-size: 13px; font-weight: 600; transition: all 0.15s; white-space: nowrap;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface); }
+.nav-btn.active { color: var(--accent); background: rgba(91,127,255,0.12); }
+
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.date-badge {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+  background: var(--surface); padding: 5px 10px; border-radius: var(--radius-xs);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.user-badge {
+  font-family: var(--font-mono); font-size: 12px; color: var(--accent2);
+  background: rgba(167,139,250,0.1); padding: 5px 10px; border-radius: var(--radius-xs);
+  border: 1px solid rgba(167,139,250,0.2); white-space: nowrap;
+}
+.user-badge:hover { background: rgba(167,139,250,0.18); }
+
+/* ============================================================
+   BOTTOM NAV — visible on mobile/tablet, hidden on desktop
+   ============================================================ */
+.bottom-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  height: var(--bottom-nav-h);
+  padding-bottom: 0;
+  background: rgba(13,15,20,0.97); backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  justify-content: space-around; align-items: stretch;
+}
+.bnav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; border: none; background: transparent; color: var(--text-muted);
+  font-family: var(--font-display); font-size: 10px; font-weight: 600;
+  padding: 8px 4px; transition: color 0.15s; letter-spacing: 0.3px;
+}
+.bnav-btn .bnav-icon { font-size: 20px; line-height: 1; transition: transform 0.15s; }
+.bnav-btn.active { color: var(--accent); }
+.bnav-btn.active .bnav-icon { transform: scale(1.15); }
+.bnav-btn:active { opacity: 0.7; }
+
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+main {
+  position: relative; z-index: 1;
+  padding: 20px clamp(16px, 4vw, 32px);
+  max-width: 1400px; margin: 0 auto; width: 100%;
+}
+.view { display: none; }
+.view.active { display: block; animation: fadeIn 0.18s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================
+   SECTION HEADERS
+   ============================================================ */
+.section-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+}
+.section-title { font-size: clamp(18px, 4vw, 22px); font-weight: 800; letter-spacing: -0.4px; flex-shrink: 0; }
+.section-title span { color: var(--accent); }
+.section-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ============================================================
+   STATS STRIP
+   ============================================================ */
+.stats-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: clamp(12px, 3vw, 18px) clamp(14px, 3vw, 20px);
+  position: relative; overflow: hidden;
+}
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.stat-card.s-total::before { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.stat-card.s-present::before { background: var(--present); }
+.stat-card.s-absent::before { background: var(--absent); }
+.stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+.stat-value { font-size: clamp(24px, 6vw, 32px); font-weight: 800; font-family: var(--font-mono); letter-spacing: -1px; }
+.stat-card.s-total .stat-value { color: var(--accent); }
+.stat-card.s-present .stat-value { color: var(--present); }
+.stat-card.s-absent .stat-value { color: var(--absent); }
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; }
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+input, select {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 9px 12px; border-radius: var(--radius-xs); font-family: var(--font-display);
+  font-size: 14px; outline: none; transition: border-color 0.15s;
+  -webkit-appearance: none; appearance: none;
+}
+input:focus, select:focus { border-color: var(--accent); }
+input::placeholder { color: var(--text-muted); }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7280'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+select option { background: #1E2230; }
+input[type="date"] { font-family: var(--font-mono); }
+.input-full { width: 100%; }
+.input-search { flex: 1; min-width: 0; }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  padding: 9px 16px; border-radius: var(--radius-xs); border: none;
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(0.97); opacity: 0.88; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #4a6ef0; }
+.btn-ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: rgba(248,113,113,0.12); color: var(--absent); border: 1px solid rgba(248,113,113,0.2); }
+.btn-danger:hover { background: rgba(248,113,113,0.2); }
+.btn-export { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+.btn-logout { background: rgba(248,113,113,0.08); color: var(--absent); border: 1px solid rgba(248,113,113,0.15); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-icon { padding: 9px; width: 36px; height: 36px; }
+.btn-full { width: 100%; }
+
+/* ============================================================
+   SESSION TOGGLE
+   ============================================================ */
+.session-toggle {
+  display: flex; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-xs); padding: 3px; flex-shrink: 0;
+}
+.session-btn {
+  padding: 6px 18px; border: none; background: transparent; font-family: var(--font-display);
+  font-size: 14px; font-weight: 700; border-radius: 5px; transition: all 0.15s; color: var(--text-muted);
+}
+.session-btn.active-am { background: rgba(167,139,250,0.2); color: var(--am-color); }
+.session-btn.active-pm { background: rgba(96,165,250,0.2); color: var(--pm-color); }
+
+.session-label {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px;
+  border-radius: 99px; font-size: 11px; font-weight: 700; font-family: var(--font-mono);
+}
+.session-label.am { background: rgba(167,139,250,0.12); color: var(--am-color); border: 1px solid rgba(167,139,250,0.2); }
+.session-label.pm { background: rgba(96,165,250,0.12); color: var(--pm-color); border: 1px solid rgba(96,165,250,0.2); }
+
+/* ============================================================
+   ATTENDANCE GRID
+   ============================================================ */
+.attendance-grid { display: flex; flex-direction: column; gap: 8px; }
+.attendance-row {
+  display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 16px; gap: 12px; transition: border-color 0.15s;
+}
+.attendance-row:active { background: var(--surface2); }
+.att-name { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-buttons { display: flex; gap: 8px; flex-shrink: 0; }
+.att-btn {
+  padding: 8px 18px; border-radius: var(--radius-xs); border: 2px solid transparent;
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  background: var(--surface2); color: var(--text-muted); transition: all 0.12s;
+  min-width: 80px; text-align: center;
+}
+.att-btn[data-status="present"].selected { background: rgba(52,211,153,0.15); color: var(--present); border-color: var(--present); }
+.att-btn[data-status="absent"].selected { background: rgba(248,113,113,0.15); color: var(--absent); border-color: var(--absent); }
+.att-btn:active { transform: scale(0.96); }
+
+/* ============================================================
+   TABLES — desktop style
+   ============================================================ */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; min-width: 400px; }
+thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
+th { padding: 11px 14px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+td { padding: 12px 14px; font-size: 14px; color: var(--text); vertical-align: middle; }
+.td-mono { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+
+/* ============================================================
+   CARD LIST — replaces table on mobile
+   ============================================================ */
+.card-list { display: none; flex-direction: column; gap: 8px; }
+.card-item {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+}
+.card-item-body { flex: 1; min-width: 0; }
+.card-item-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.card-item-meta { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+.card-item-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+
+/* ============================================================
+   LOG CARDS (mobile)
+   ============================================================ */
+.log-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.log-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.log-card-name { font-size: 15px; font-weight: 700; flex: 1; }
+.log-card-meta { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); display: flex; gap: 8px; align-items: center; }
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; font-family: var(--font-mono); }
+.badge::before { content: '●'; font-size: 7px; }
+.badge-present { background: rgba(52,211,153,0.12); color: var(--present); }
+.badge-absent { background: rgba(248,113,113,0.12); color: var(--absent); }
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(6px); z-index: 500; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px 18px 0 0; /* bottom sheet on mobile */
+  padding: 24px 20px; padding-bottom: max(24px, var(--safe-bottom));
+  width: 100%; max-width: 480px; animation: sheetUp 0.22s ease;
+}
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+.modal-title { font-size: 18px; font-weight: 800; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+.form-input { width: 100%; font-size: 16px; /* prevent iOS zoom */ }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.settings-card-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.settings-card-title .icon { font-size: 16px; }
+.form-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* ============================================================
+   REPORTS TABLE — scrollable on small screens
+   ============================================================ */
+.reports-table-note { display: none; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 10px; }
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.toast-container { position: fixed; bottom: calc(var(--bottom-nav-h) + 12px); right: 16px; left: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 11px 16px; font-size: 14px; font-weight: 600;
+  animation: toastIn 0.25s ease; display: flex; align-items: center; gap: 10px;
+  max-width: 400px; margin: 0 auto; width: 100%; pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+@keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.toast.success { border-color: var(--present); color: var(--present); }
+.toast.error { border-color: var(--absent); color: var(--absent); }
+.toast.info { border-color: var(--accent); color: var(--accent); }
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; display: block; }
+.empty-state p { font-size: 14px; }
+
+.ml-auto { margin-left: auto; }
+
+/* ============================================================
+   RESPONSIVE BREAKPOINTS
+   ============================================================ */
+
+/* --- TABLET (641px – 1023px) --- */
+@media (min-width: 641px) {
+  .modal { border-radius: 16px; max-width: 460px; animation: modalCenterIn 0.2s ease; align-self: center; }
+  .modal-handle { display: none; }
+  .modal-overlay { align-items: center; }
+  @keyframes modalCenterIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  .toast-container { left: auto; right: 24px; bottom: 24px; max-width: 320px; }
+  .toast { max-width: 320px; margin: 0; }
+}
+
+/* --- MOBILE ONLY (≤640px) --- */
+@media (max-width: 640px) {
+  :root { --header-h: 56px; }
+  header { padding: 0 16px; }
+  .desktop-nav { display: none; }
+  .date-badge { display: none; }
+  .bottom-nav { display: flex; }
+
+  main { padding: 14px 14px; }
+
+  /* Section headers stack vertically */
+  .section-header { flex-direction: column; align-items: stretch; }
+  .section-actions { justify-content: flex-start; overflow-x: auto; padding-bottom: 2px; }
+  .section-actions::-webkit-scrollbar { display: none; }
+
+  /* Stats shrink further */
+  .stats-strip { gap: 8px; }
+  .stat-label { font-size: 9px; }
+
+  /* Search goes full width */
+  .toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .toolbar .input-search { width: 100%; }
+
+  /* People table → card list */
+  .people-table-wrap { display: none; }
+  .people-card-list { display: flex; }
+
+  /* Log table → card list */
+  .log-table-wrap { display: none; }
+  .log-card-list { display: flex; flex-direction: column; gap: 8px; }
+
+  /* Attendance buttons full-width half split */
+  .att-btn { flex: 1; min-width: 0; padding: 10px 8px; font-size: 14px; }
+  .att-buttons { width: 100%; }
+  .attendance-row { flex-wrap: wrap; gap: 10px; }
+  .att-name { width: 100%; flex: none; }
+
+  /* Reports table scrollable with hint */
+  .reports-table-note { display: block; }
+
+  /* Settings single column */
+  .settings-grid { grid-template-columns: 1fr; }
+
+  /* Toolbar rows for reports */
+  .report-toolbar { flex-direction: column; gap: 8px; }
+  .report-toolbar .date-group { display: flex; gap: 8px; align-items: center; width: 100%; }
+  .report-toolbar input[type="date"] { flex: 1; min-width: 0; }
+  .report-toolbar .btn { width: 100%; }
+}
+
+/* --- DESKTOP (≥1024px) --- */
+@media (min-width: 1024px) {
+  :root { --bottom-nav-h: 0px; }
+  body { padding-bottom: 0; }
+  header { padding: 0 32px; }
+  main { padding: 28px 32px; }
+  .bottom-nav { display: none !important; }
+  .toast-container { left: auto; right: 28px; bottom: 28px; max-width: 320px; }
+  .toast { max-width: 320px; margin: 0; }
+  .att-btn:hover { opacity: 0.85; }
+  .att-btn[data-status="present"]:hover { background: rgba(52,211,153,0.1); color: var(--present); border-color: rgba(52,211,153,0.4); }
+  .att-btn[data-status="absent"]:hover { background: rgba(248,113,113,0.1); color: var(--absent); border-color: rgba(248,113,113,0.4); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══════════════════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════════════════ -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📋</div>
+      <div class="logo-text">Attend<span>ance</span></div>
+    </div>
+
+    <nav class="desktop-nav">
+      <button class="nav-btn active" onclick="showView('attendance',this)">Take Attendance</button>
+      <button class="nav-btn" onclick="showView('log',this)">Log</button>
+      <button class="nav-btn" onclick="showView('people',this)">People</button>
+      <button class="nav-btn" onclick="showView('reports',this)">Reports</button>
+      <button class="nav-btn" onclick="showView('settings',this)">Settings</button>
+    </nav>
+
+    <div class="header-right">
+      <div class="date-badge" id="currentDate"></div>
+      <div class="user-badge" onclick="showView('settings', document.querySelector('.desktop-nav .nav-btn:last-child'))">
+        👤 <span id="usernameDisplay">admin</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════
+       BOTTOM NAV (mobile)
+       ═══════════════════════════════════════════════════════ -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bnav-btn active" data-view="attendance" onclick="showView('attendance',this)">
+      <span class="bnav-icon">✅</span>Attend
+    </button>
+    <button class="bnav-btn" data-view="log" onclick="showView('log',this)">
+      <span class="bnav-icon">📋</span>Log
+    </button>
+    <button class="bnav-btn" data-view="people" onclick="showView('people',this)">
+      <span class="bnav-icon">👥</span>People
+    </button>
+    <button class="bnav-btn" data-view="reports" onclick="showView('reports',this)">
+      <span class="bnav-icon">📊</span>Reports
+    </button>
+    <button class="bnav-btn" data-view="settings" onclick="showView('settings',this)">
+      <span class="bnav-icon">⚙️</span>Settings
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN
+       ═══════════════════════════════════════════════════════ -->
+  <main>
+
+    <!-- TAKE ATTENDANCE ─────────────────────────────────── -->
+    <div class="view active" id="view-attendance">
+      <div class="section-header">
+        <div class="section-title">Take <span>Attendance</span></div>
+        <div class="section-actions">
+          <input type="date" id="attDate">
+          <div class="session-toggle">
+            <button class="session-btn active-am" id="btnAM" onclick="setSession('AM')">AM</button>
+            <button class="session-btn" id="btnPM" onclick="setSession('PM')">PM</button>
+          </div>
+          <button class="btn btn-ghost" onclick="markAllPresent()">✓ All Present</button>
+          <button class="btn btn-primary" onclick="saveAttendance()">💾 Save</button>
+        </div>
+      </div>
+
+      <div class="stats-strip">
+        <div class="stat-card s-total"><div class="stat-label">Total</div><div class="stat-value" id="statTotal">0</div></div>
+        <div class="stat-card s-present"><div class="stat-label">Present</div><div class="stat-value" id="statPresent">0</div></div>
+        <div class="stat-card s-absent"><div class="stat-label">Absent</div><div class="stat-value" id="statAbsent">0</div></div>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" class="input-search" id="attSearch" placeholder="🔍 Filter people..." oninput="filterAttendance()">
+        <span id="sessionIndicator" class="session-label am">AM Session</span>
+      </div>
+
+      <div class="attendance-grid" id="attendanceGrid">
+        <div class="empty-state"><span class="icon">👥</span><p>No people yet. Add some in People.</p></div>
+      </div>
+    </div>
+
+    <!-- LOG ─────────────────────────────────────────────── -->
+    <div class="view" id="view-log">
+      <div class="section-header">
+        <div class="section-title">Attendance <span>Log</span></div>
+        <div class="section-actions">
+          <input type="date" id="logDateFilter" onchange="loadLog()">
+          <select id="logSessionFilter" onchange="loadLog()">
+            <option value="">AM & PM</option>
+            <option value="AM">AM only</option>
+            <option value="PM">PM only</option>
+          </select>
+          <button class="btn btn-ghost" onclick="document.getElementById('logDateFilter').value='';loadLog()">Clear</button>
+          <button class="btn btn-export" onclick="exportExcel()">⬇ Export</button>
+        </div>
+      </div>
+
+      <!-- Desktop table -->
+      <div class="table-wrap log-table-wrap">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Date</th><th>Session</th><th>Name</th><th>Status</th><th>Note</th><th></th></tr></thead>
+            <tbody id="logTableBody">
+              <tr><td colspan="6"><div class="empty-state"><span class="icon">📋</span><p>No records yet</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Mobile card list -->
+      <div class="log-card-list" id="logCardList">
+        <div class="empty-state"><span class="icon">📋</span><p>No records yet</p></div>
+      </div>
+    </div>
+
+    <!-- PEOPLE ──────────────────────────────────────────── -->
+    <div class="view" id="view-people">
+      <div class="section-header">
+        <div class="section-title">People <span>Database</span></div>
+        <div class="section-actions">
+          <button class="btn btn-primary" onclick="openAddPerson()">+ Add Person</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <input type="text" class="input-search" id="peopleSearch" placeholder="🔍 Search..." oninput="filterPeople()">
+        <span class="ml-auto" style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;" id="peopleCount"></span>
+      </div>
+
+      <!-- Desktop table -->
+      <div class="table-wrap people-table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Added</th><th>Actions</th></tr></thead>
+          <tbody id="peopleTableBody">
+            <tr><td colspan="4"><div class="empty-state"><span class="icon">👤</span><p>No people yet.</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile card list -->
+      <div class="card-list people-card-list" id="peopleCardList">
+        <div class="empty-state"><span class="icon">👤</span><p>No people yet.</p></div>
+      </div>
+    </div>
+
+    <!-- REPORTS ─────────────────────────────────────────── -->
+    <div class="view" id="view-reports">
+      <div class="section-header">
+        <div class="section-title">Reports & <span>Export</span></div>
+      </div>
+
+      <div class="toolbar report-toolbar">
+        <div class="date-group">
+          <input type="date" id="reportStart">
+          <span style="color:var(--text-muted);flex-shrink:0;">→</span>
+          <input type="date" id="reportEnd">
+        </div>
+        <button class="btn btn-ghost" onclick="loadSummary()">Load Summary</button>
+        <button class="btn btn-export" onclick="exportRangeExcel()">⬇ Export Excel</button>
+      </div>
+
+      <p class="reports-table-note">← Scroll to see all columns</p>
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th style="color:var(--am-color)">AM ✓</th>
+                <th style="color:var(--am-color)">AM ✗</th>
+                <th style="color:var(--am-color)">AM %</th>
+                <th style="color:var(--pm-color)">PM ✓</th>
+                <th style="color:var(--pm-color)">PM ✗</th>
+                <th style="color:var(--pm-color)">PM %</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTableBody">
+              <tr><td colspan="7"><div class="empty-state"><span class="icon">📊</span><p>Select a date range and load</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS ────────────────────────────────────────── -->
+    <div class="view" id="view-settings">
+      <div class="section-header">
+        <div class="section-title">Admin <span>Settings</span></div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="settings-card">
+          <div class="settings-card-title"><span class="icon">🔑</span> Change Password</div>
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input type="password" id="currentPw" class="form-input" placeholder="••••••••">
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input type="password" id="newPw" class="form-input" placeholder="••••••••">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" id="confirmPw" class="form-input" placeholder="••••••••">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="changePassword()">Update Password</button>
+        </div>
+
+        <div class="settings-card">
+          <div class="settings-card-title"><span class="icon">👤</span> Change Username</div>
+          <div class="form-group">
+            <label class="form-label">New Username</label>
+            <input type="text" id="newUsername" class="form-input" placeholder="e.g. jsmith" autocapitalize="none">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input type="password" id="usernameConfirmPw" class="form-input" placeholder="••••••••">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="changeUsername()">Update Username</button>
+          <hr class="form-divider">
+          <div class="settings-card-title"><span class="icon">🚪</span> Session</div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+            Signed in as <strong style="color:var(--text)" id="settingsUsername"></strong>
+          </p>
+          <button class="btn btn-logout btn-full" onclick="doLogout()">Sign Out</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Person Modal -->
+<div class="modal-overlay" id="personModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="personModalTitle">Add Person</div>
+    <input type="hidden" id="personId">
+    <div class="form-group">
+      <label class="form-label">Full Name *</label>
+      <input type="text" id="personName" class="form-input" placeholder="e.g. Jane Smith" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" id="personEmail" class="form-input" placeholder="jane@example.com" autocomplete="off" autocapitalize="none">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('personModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePerson()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════ */
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('attDate').value = today;
+document.getElementById('logDateFilter').value = today;
+document.getElementById('reportStart').value = today;
+document.getElementById('reportEnd').value = today;
+
+function updateClock() {
+  document.getElementById('currentDate').textContent =
+    new Date().toLocaleDateString('en-US', {weekday:'short', year:'numeric', month:'short', day:'numeric'});
+}
+updateClock(); setInterval(updateClock, 60000);
+
+let allPeople = [];
+let attendanceState = {};
+let currentSession = 'AM';
+
+/* ═══════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════ */
+function showView(name, triggerBtn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn, .bnav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+
+  // Highlight desktop nav
+  document.querySelectorAll('.desktop-nav .nav-btn').forEach(b => {
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${name}'`)) b.classList.add('active');
+  });
+  // Highlight bottom nav
+  document.querySelectorAll('.bnav-btn').forEach(b => {
+    if (b.dataset.view === name) b.classList.add('active');
+  });
+
+  if (name === 'attendance') loadAttendanceView();
+  if (name === 'log') loadLog();
+  if (name === 'people') loadPeople();
+  if (name === 'settings') loadSettingsInfo();
+
+  window.scrollTo(0, 0);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════════════════════ */
+function toast(msg, type = 'info') {
+  const icons = {success:'✓', error:'✗', info:'ℹ'};
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SESSION TOGGLE
+   ═══════════════════════════════════════════════════════════ */
+function setSession(sess) {
+  currentSession = sess;
+  document.getElementById('btnAM').className = 'session-btn' + (sess === 'AM' ? ' active-am' : '');
+  document.getElementById('btnPM').className = 'session-btn' + (sess === 'PM' ? ' active-pm' : '');
+  const ind = document.getElementById('sessionIndicator');
+  ind.className = `session-label ${sess.toLowerCase()}`;
+  ind.textContent = `${sess} Session`;
+  if (document.getElementById('view-attendance').classList.contains('active')) loadAttendanceView();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PEOPLE
+   ═══════════════════════════════════════════════════════════ */
+async function loadPeople() {
+  const res = await fetch('/api/people');
+  if (res.status === 401) { window.location.href = '/login'; return; }
+  allPeople = await res.json();
+  renderPeopleTable(allPeople);
+  renderPeopleCards(allPeople);
+}
+
+function renderPeopleTable(people) {
+  const tbody = document.getElementById('peopleTableBody');
+  document.getElementById('peopleCount').textContent = `${people.length} people`;
+  if (!people.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><span class="icon">👤</span><p>No people yet. Add someone!</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = people.map(p => `
+    <tr>
+      <td><strong>${esc(p.name)}</strong></td>
+      <td class="td-mono">${esc(p.email || '—')}</td>
+      <td class="td-mono">${new Date(p.created_at).toLocaleDateString()}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="openEditPerson(${p.id})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePerson(${p.id},'${esc(p.name)}')">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function renderPeopleCards(people) {
+  const list = document.getElementById('peopleCardList');
+  document.getElementById('peopleCount').textContent = `${people.length} people`;
+  if (!people.length) {
+    list.innerHTML = '<div class="empty-state"><span class="icon">👤</span><p>No people yet. Add someone!</p></div>';
+    return;
+  }
+  list.innerHTML = people.map(p => `
+    <div class="card-item">
+      <div class="card-item-body">
+        <div class="card-item-name">${esc(p.name)}</div>
+        <div class="card-item-meta">${esc(p.email || 'No email')} · Added ${new Date(p.created_at).toLocaleDateString()}</div>
+      </div>
+      <div class="card-item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditPerson(${p.id})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deletePerson(${p.id},'${esc(p.name)}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function filterPeople() {
+  const q = document.getElementById('peopleSearch').value.toLowerCase();
+  const filtered = allPeople.filter(p => !q || p.name.toLowerCase().includes(q) || (p.email||'').toLowerCase().includes(q));
+  renderPeopleTable(filtered);
+  renderPeopleCards(filtered);
+}
+
+function openAddPerson() {
+  document.getElementById('personId').value = '';
+  document.getElementById('personName').value = '';
+  document.getElementById('personEmail').value = '';
+  document.getElementById('personModalTitle').textContent = 'Add Person';
+  openModal('personModal');
+}
+
+function openEditPerson(id) {
+  const p = allPeople.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('personId').value = p.id;
+  document.getElementById('personName').value = p.name;
+  document.getElementById('personEmail').value = p.email || '';
+  document.getElementById('personModalTitle').textContent = 'Edit Person';
+  openModal('personModal');
+}
+
+async function savePerson() {
+  const id = document.getElementById('personId').value;
+  const data = { name: document.getElementById('personName').value.trim(), email: document.getElementById('personEmail').value.trim() };
+  if (!data.name) { toast('Name is required', 'error'); return; }
+  const res = await fetch(id ? `/api/people/${id}` : '/api/people', {
+    method: id ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  if (res.ok) {
+    closeModal('personModal');
+    toast(id ? 'Person updated' : 'Person added', 'success');
+    await loadPeople();
+    if (document.getElementById('view-attendance').classList.contains('active')) loadAttendanceView();
+  } else {
+    const err = await res.json(); toast(err.error || 'Error saving', 'error');
+  }
+}
+
+async function deletePerson(id, name) {
+  if (!confirm(`Delete "${name}"? All their records will be removed.`)) return;
+  const res = await fetch(`/api/people/${id}`, { method: 'DELETE' });
+  if (res.ok) { toast('Person deleted', 'success'); loadPeople(); }
+  else toast('Error deleting', 'error');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ATTENDANCE
+   ═══════════════════════════════════════════════════════════ */
+async function loadAttendanceView() {
+  if (!allPeople.length) await loadPeople();
+  const date = document.getElementById('attDate').value;
+  const res = await fetch(`/api/attendance?date=${date}&session=${currentSession}`);
+  if (res.status === 401) { window.location.href = '/login'; return; }
+  const records = await res.json();
+  const existing = {};
+  records.forEach(r => { existing[r.person_id] = r.status; });
+  attendanceState = {};
+  allPeople.forEach(p => { attendanceState[p.id] = existing[p.id] || null; });
+  renderAttendanceGrid(allPeople);
+  updateStats();
+}
+
+document.getElementById('attDate').addEventListener('change', () => {
+  if (document.getElementById('view-attendance').classList.contains('active')) loadAttendanceView();
+});
+
+function renderAttendanceGrid(people) {
+  const grid = document.getElementById('attendanceGrid');
+  if (!people.length) {
+    grid.innerHTML = '<div class="empty-state"><span class="icon">👥</span><p>No people found.</p></div>';
+    return;
+  }
+  grid.innerHTML = people.map(p => {
+    const cur = attendanceState[p.id];
+    return `<div class="attendance-row" id="attrow-${p.id}">
+      <div class="att-name">${esc(p.name)}</div>
+      <div class="att-buttons">
+        <button class="att-btn ${cur==='present'?'selected':''}" data-status="present" onclick="setAttendance(${p.id},'present')">Present</button>
+        <button class="att-btn ${cur==='absent'?'selected':''}" data-status="absent" onclick="setAttendance(${p.id},'absent')">Absent</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setAttendance(personId, status) {
+  attendanceState[personId] = status;
+  const row = document.getElementById(`attrow-${personId}`);
+  row.querySelectorAll('.att-btn').forEach(b => b.classList.toggle('selected', b.dataset.status === status));
+  updateStats();
+}
+
+function updateStats() {
+  const vals = Object.values(attendanceState).filter(Boolean);
+  document.getElementById('statTotal').textContent = allPeople.length;
+  document.getElementById('statPresent').textContent = vals.filter(v => v==='present').length;
+  document.getElementById('statAbsent').textContent = vals.filter(v => v==='absent').length;
+}
+
+function markAllPresent() {
+  allPeople.forEach(p => { attendanceState[p.id] = 'present'; });
+  const q = document.getElementById('attSearch').value.toLowerCase();
+  renderAttendanceGrid(allPeople.filter(p => !q || p.name.toLowerCase().includes(q)));
+  updateStats();
+}
+
+function filterAttendance() {
+  const q = document.getElementById('attSearch').value.toLowerCase();
+  renderAttendanceGrid(allPeople.filter(p => !q || p.name.toLowerCase().includes(q)));
+}
+
+async function saveAttendance() {
+  const date = document.getElementById('attDate').value;
+  const records = Object.entries(attendanceState).filter(([,s]) => s).map(([pid,status]) => ({person_id:+pid, status}));
+  if (!records.length) { toast('No attendance marked', 'error'); return; }
+  const res = await fetch('/api/attendance/bulk', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ date, session: currentSession, records })
+  });
+  if (res.ok) { const d = await res.json(); toast(`Saved ${d.count} ${currentSession} records`, 'success'); }
+  else toast('Error saving', 'error');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOG
+   ═══════════════════════════════════════════════════════════ */
+async function loadLog() {
+  const dateFilter = document.getElementById('logDateFilter').value;
+  const sessFilter = document.getElementById('logSessionFilter').value;
+  let url = '/api/attendance';
+  const params = [];
+  if (dateFilter) params.push(`date=${dateFilter}`);
+  if (sessFilter) params.push(`session=${sessFilter}`);
+  if (params.length) url += '?' + params.join('&');
+  const res = await fetch(url);
+  const records = await res.json();
+  renderLogTable(records);
+  renderLogCards(records);
+}
+
+function renderLogTable(records) {
+  const tbody = document.getElementById('logTableBody');
+  if (!records.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><span class="icon">📋</span><p>No records for this filter</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = records.map(r => `
+    <tr>
+      <td class="td-mono">${r.date}</td>
+      <td><span class="session-label ${r.session.toLowerCase()}">${r.session}</span></td>
+      <td><strong>${esc(r.person_name)}</strong></td>
+      <td><span class="badge badge-${r.status}">${r.status}</span></td>
+      <td style="color:var(--text-muted);font-size:13px;">${esc(r.note||'')}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRecord(${r.id})">✕</button></td>
+    </tr>`).join('');
+}
+
+function renderLogCards(records) {
+  const list = document.getElementById('logCardList');
+  if (!records.length) {
+    list.innerHTML = '<div class="empty-state"><span class="icon">📋</span><p>No records for this filter</p></div>';
+    return;
+  }
+  list.innerHTML = records.map(r => `
+    <div class="log-card">
+      <div class="log-card-header">
+        <div class="log-card-name">${esc(r.person_name)}</div>
+        <span class="badge badge-${r.status}">${r.status}</span>
+        <span class="session-label ${r.session.toLowerCase()}">${r.session}</span>
+        <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="deleteRecord(${r.id})">✕</button>
+      </div>
+      <div class="log-card-meta">
+        <span>${r.date}</span>
+        ${r.note ? `<span>· ${esc(r.note)}</span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function deleteRecord(id) {
+  if (!confirm('Delete this record?')) return;
+  const res = await fetch(`/api/attendance/${id}`, { method: 'DELETE' });
+  if (res.ok) { toast('Record deleted', 'success'); loadLog(); }
+}
+
+function exportExcel() {
+  const date = document.getElementById('logDateFilter').value;
+  window.location.href = date ? `/api/export?date=${date}` : '/api/export';
+  toast('Downloading Excel…', 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REPORTS
+   ═══════════════════════════════════════════════════════════ */
+async function loadSummary() {
+  const start = document.getElementById('reportStart').value;
+  const end = document.getElementById('reportEnd').value;
+  const res = await fetch(`/api/attendance/summary?start=${start}&end=${end}`);
+  const data = await res.json();
+  const tbody = document.getElementById('summaryTableBody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><span class="icon">📊</span><p>No data for this range</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(row => {
+    const amTotal = row.am_present + row.am_absent;
+    const pmTotal = row.pm_present + row.pm_absent;
+    const amRate = amTotal > 0 ? Math.round(row.am_present/amTotal*100)+'%' : '—';
+    const pmRate = pmTotal > 0 ? Math.round(row.pm_present/pmTotal*100)+'%' : '—';
+    const rateColor = r => r === '—' ? 'var(--text-muted)' : parseInt(r) >= 80 ? 'var(--present)' : parseInt(r) >= 60 ? '#FBBF24' : 'var(--absent)';
+    return `<tr>
+      <td><strong>${esc(row.name)}</strong></td>
+      <td style="color:var(--am-color);font-family:var(--font-mono);font-weight:700;">${row.am_present}</td>
+      <td style="color:var(--absent);font-family:var(--font-mono);">${row.am_absent}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;color:${rateColor(amRate)}">${amRate}</td>
+      <td style="color:var(--pm-color);font-family:var(--font-mono);font-weight:700;">${row.pm_present}</td>
+      <td style="color:var(--absent);font-family:var(--font-mono);">${row.pm_absent}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;color:${rateColor(pmRate)}">${pmRate}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportRangeExcel() {
+  const start = document.getElementById('reportStart').value;
+  const end = document.getElementById('reportEnd').value;
+  window.location.href = `/api/export?start=${start}&end=${end}`;
+  toast('Downloading Excel…', 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SETTINGS & AUTH
+   ═══════════════════════════════════════════════════════════ */
+async function loadSettingsInfo() {
+  const res = await fetch('/api/auth/me');
+  if (res.ok) {
+    const d = await res.json();
+    document.getElementById('settingsUsername').textContent = d.username;
+    document.getElementById('usernameDisplay').textContent = d.username;
+  }
+}
+
+async function changePassword() {
+  const cur = document.getElementById('currentPw').value;
+  const nw = document.getElementById('newPw').value;
+  const cf = document.getElementById('confirmPw').value;
+  if (!cur || !nw) { toast('All fields required', 'error'); return; }
+  if (nw !== cf) { toast('Passwords do not match', 'error'); return; }
+  const res = await fetch('/api/auth/change-password', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ current_password: cur, new_password: nw })
+  });
+  if (res.ok) {
+    toast('Password updated', 'success');
+    ['currentPw','newPw','confirmPw'].forEach(id => document.getElementById(id).value = '');
+  } else { const d = await res.json(); toast(d.error || 'Error', 'error'); }
+}
+
+async function changeUsername() {
+  const newU = document.getElementById('newUsername').value.trim();
+  const pw = document.getElementById('usernameConfirmPw').value;
+  if (!newU || !pw) { toast('All fields required', 'error'); return; }
+  const res = await fetch('/api/auth/change-username', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ new_username: newU, password: pw })
+  });
+  if (res.ok) {
+    toast('Username updated', 'success');
+    ['newUsername','usernameConfirmPw'].forEach(id => document.getElementById(id).value = '');
+    loadSettingsInfo();
+  } else { const d = await res.json(); toast(d.error || 'Error', 'error'); }
+}
+
+async function doLogout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODALS
+   ═══════════════════════════════════════════════════════════ */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* Boot */
+loadPeople().then(() => loadAttendanceView());
+loadSettingsInfo();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  attendance:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - attendance_data:/data
+    environment:
+      - DATABASE_URL=sqlite:////data/attendance.db
+    restart: unless-stopped
+
+volumes:
+  attendance_data:
