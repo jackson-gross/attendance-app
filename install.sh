@@ -81,27 +81,31 @@ install_docker_debian() {
   # - raspbian and Raspberry Pi OS (arm) use the "debian" repo
   # - ubuntu and ubuntu-based distros use the "ubuntu" repo
   # - pure debian uses the "debian" repo
+  # Map any unreleased/unknown codename to the latest stable Docker supports
+  remap_debian_codename() {
+    case "$1" in
+      buster|bullseye|bookworm) echo "$1" ;;
+      *) echo "bookworm" ;;   # trixie, forky, or unknown -> latest stable
+    esac
+  }
+  remap_ubuntu_codename() {
+    case "$1" in
+      bionic|focal|jammy|noble) echo "$1" ;;
+      *) echo "noble" ;;   # unreleased or unknown -> latest stable
+    esac
+  }
+
   if [[ "$DISTRO_ID" == "ubuntu" ]] || [[ "$DISTRO_ID_LIKE" == *"ubuntu"* && "$DISTRO_ID" != "raspbian" ]]; then
     DOCKER_DISTRO="ubuntu"
-    # For ubuntu-based distros (mint, pop, etc.) we need the upstream ubuntu codename
-    if [[ "$DISTRO_ID" != "ubuntu" ]]; then
-      # Derive base Ubuntu codename from UBUNTU_CODENAME if set, else fall back
-      DOCKER_CODENAME="${UBUNTU_CODENAME:-$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")}"
-    else
-      DOCKER_CODENAME="$DISTRO_CODENAME"
-    fi
+    RAW_CODENAME="${UBUNTU_CODENAME:-$DISTRO_CODENAME}"
+    DOCKER_CODENAME="$(remap_ubuntu_codename "$RAW_CODENAME")"
   else
-    # Debian, Raspberry Pi OS (raspbian), Kali, Parrot, and any other debian-like
+    # Debian, Raspberry Pi OS, Kali, Parrot, and any other debian-like
     DOCKER_DISTRO="debian"
-    # Raspberry Pi OS reports VERSION_CODENAME correctly (bookworm, bullseye, buster)
-    # Kali uses its own codename but is compatible with the debian repo
     if [[ "$DISTRO_ID" == "kali" ]]; then
-      # Kali is based on Debian testing — use the upstream debian codename
-      DOCKER_CODENAME="$(dpkg --status tzdata 2>/dev/null | grep Provides | cut -f2 -d'-' || echo bookworm)"
-      # Safer: just hardcode to the current stable Debian since Kali tracks it
       DOCKER_CODENAME="bookworm"
     else
-      DOCKER_CODENAME="$DISTRO_CODENAME"
+      DOCKER_CODENAME="$(remap_debian_codename "$DISTRO_CODENAME")"
     fi
   fi
 
