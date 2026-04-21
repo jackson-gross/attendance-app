@@ -8,12 +8,12 @@ A self-hosted attendance web app that runs in Docker. Manage a people database, 
 
 ### Mac & Linux
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/attendance-tracker/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jackson-gross/attendance-app/main/install.sh | bash
 ```
 
 ### Windows (PowerShell — run as Administrator)
 ```powershell
-irm https://raw.githubusercontent.com/YOUR_USERNAME/attendance-tracker/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/jackson-gross/attendance-app/main/install.ps1 | iex
 ```
 
 The installer will:
@@ -22,7 +22,7 @@ The installer will:
 - Build and start the app
 - Configure it to **start automatically on boot/login**
 
-After install, open **http://localhost:5000** in your browser.
+After install, open **http://localhost:1111** in your browser.
 
 > **Default credentials:** username `admin` / password `admin`
 > Change these immediately in the Settings tab after first login.
